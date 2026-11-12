@@ -53,19 +53,23 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+`detector.py::model_signal`
 
-**Why that might differ between human and AI writing:**
+**What it measures:** How predictable the text is to gpt2, running locally. It computes perplexity (how surprised the model is by each next token) and squashes it onto 0–1 so that low perplexity gives a high score. Higher = more AI-like.
 
-**What it can't see:**
+**Why that might differ between human and AI writing:** A language model writes by repeatedly picking a likely next word, so text a model wrote is text a model finds easy to predict. People wander more: specific details, odd word choices, sentences that turn somewhere unexpected.
+
+**What it can't see:** Who actually wrote the text. Predictability isn't authorship. Plain writing — common words in short, ordinary sentences, the way someone writing in a second language or a younger writer often writes — is predictable too and scores like AI. It also fails the other way: AI text that uses rare or ornate vocabulary surprises the model and scores human. It has no idea about meaning or whether a person edited the output.
 
 ### Signal two — the style signal
 
-**What it measures:**
+`stylometry.py::style_signal`
 
-**Why that might differ between human and AI writing:**
+**What it measures:** The shape of the text, without reading it. Three measures: how much sentence length varies (coefficient of variation), how much of the vocabulary is unique (type-token ratio over a fixed-size window), and how often the writer uses "expressive" punctuation — dashes, semicolons, colons, parentheses, question/exclamation marks — per sentence.
 
-**What it can't see:**
+**Why that might differ between human and AI writing:** Generated prose tends toward even, mid-length sentences, safe repeated vocabulary, and tidy comma-and-period punctuation. Human writing is lumpier: a three-word sentence next to a forty-word one, an aside in parentheses, a dash where a comma would do.
+
+**What it can't see:** Anything the text says. It can't read. Anything that changes the shape without changing the substance moves it — typos, breaking sentences up, pasting in a quote, sprinkling in a few dashes. That is cheap to do on purpose. It's also weak on short text: two or three sentences give almost no spread to measure.
 
 ### The combining rule
 
