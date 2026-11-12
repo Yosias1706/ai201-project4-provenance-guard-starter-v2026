@@ -128,11 +128,21 @@
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "I started working at the library last year. The job is not hard but it is busy. Every day I help people find books and use the computers. I like it because I meet many people. Some days are slow and I read during my break.", "creator_id": "yosias"}'
 ```
 
 ```json
+{"confidence":0.6541,"content_id":"508c0011-82f8-459b-b0ac-79a0af0f7f2d","guess":"pending","label":"pending","model_score":0.6541,"status":"decided","style_score":null}
+```
 
+(Milestone 3 — signal one only; guess and label are placeholders.)
+
+```bash
+$ curl "http://127.0.0.1:5000/log?limit=2"
+```
+
+```json
+{"count":1,"entries":[{"combined_score":null,"content_id":"508c0011-82f8-459b-b0ac-79a0af0f7f2d","creator_id":"yosias","guess":"pending","label":"pending","model_score":0.6541,"status":"decided","style_score":null,"timestamp":"2026-11-12T04:31:45+00:00"}]}
 ```
 
 **An appeal**
