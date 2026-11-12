@@ -35,6 +35,7 @@ import scoring
 import stylometry
 
 MAX_TEXT_CHARS = 20_000
+MAX_REASONING_CHARS = 5_000
 
 app = Flask(__name__)
 
@@ -234,9 +235,7 @@ def submit():
     style_score = stylometry.style_signal(text)
     confidence = scoring.combine_signals(model_score, style_score)
 
-    # Placeholder until the labels exist (Milestone 5).
-    guess = "pending"
-    label = "pending"
+    guess, label = scoring.score_to_label(confidence)
     status = "decided"
 
     audit.log_decision(
@@ -285,14 +284,42 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _error(400, "invalid_json",
+                      "Send a JSON object like {\"content_id\": \"...\", \"reasoning\": \"...\"}.")
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+
+    if not isinstance(content_id, str) or not content_id.strip():
+        return _error(400, "missing_content_id", "Include the content_id you got back when you submitted.")
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return _error(400, "missing_reasoning", "Tell us in a sentence or two why you think the result is wrong.")
+    if len(reasoning) > MAX_REASONING_CHARS:
+        return _error(400, "reasoning_too_long",
+                      f"Please keep your reasoning under {MAX_REASONING_CHARS:,} characters.")
+
+    content_id = content_id.strip()
+    decisions = [e for e in audit.entries_for(content_id) if e.get("status") == "decided"]
+    if not decisions:
+        return _error(404, "unknown_content_id",
+                      "We couldn't find a submission with that content_id. Check it was copied exactly.")
+
+    original = decisions[-1]
+    audit.log_appeal(
+        content_id=content_id,
+        creator_id=original.get("creator_id", "unknown"),
+        reasoning=reasoning.strip(),
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "original_guess": original.get("guess"),
+        "message": "Thanks — your appeal has been recorded and a person will review this decision. "
+                   "The original result is on hold until then.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────
