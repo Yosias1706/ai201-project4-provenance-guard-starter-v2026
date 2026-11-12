@@ -31,6 +31,8 @@ from flask import Flask, jsonify, request
 import audit
 import config
 import detector
+import scoring
+import stylometry
 
 MAX_TEXT_CHARS = 20_000
 
@@ -229,8 +231,10 @@ def submit():
     except detector.DetectorUnavailable:
         return _error(503, "detector_unavailable", "The checker isn't available right now. Try again later.")
 
-    # Placeholders until the second signal and the labels exist (Milestones 4 and 5).
-    confidence = model_score
+    style_score = stylometry.style_signal(text)
+    confidence = scoring.combine_signals(model_score, style_score)
+
+    # Placeholder until the labels exist (Milestone 5).
     guess = "pending"
     label = "pending"
     status = "decided"
@@ -240,6 +244,8 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=confidence,
         label=label,
         status=status,
     )
@@ -250,7 +256,7 @@ def submit():
         "confidence": confidence,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
         "status": status,
     })
 

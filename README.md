@@ -76,18 +76,44 @@
 <!-- Write the rule in words, then give the numbers. What happens when the two
      signals disagree? -->
 
-**The rule:**
+**The rule:** (written down before I coded it)
 
-**The numbers:**
+1. Start with a weighted average, with the model signal counting more than the style signal. The style signal can't read and is cheap to push around, so it shouldn't be able to carry a decision on its own.
+2. If the two signals are far apart, that disagreement *is* uncertainty — pull the score halfway back toward 0.5.
+3. "High-confidence AI" needs **both** signals to agree. If either one is below the agreement floor, the combined score is capped just under the AI threshold, so the worst a split can produce is "unsure". This is the rule that protects plain human writing.
+
+**The numbers:** (all in `config.py`)
+
+| Setting | Value |
+|---|---|
+| `WEIGHT_MODEL_SIGNAL` | 0.6 |
+| `WEIGHT_STYLE_SIGNAL` | 0.4 |
+| `DISAGREEMENT_GAP` — gap that triggers the pull toward 0.5 | 0.40 (score becomes `0.5 + (score − 0.5) × 0.5`) |
+| `AGREEMENT_FLOOR` — both signals must be at least this for "AI" | 0.65 (otherwise capped at `AI_THRESHOLD − 0.01` = 0.69) |
+| `HUMAN_THRESHOLD` | 0.40 |
+| `AI_THRESHOLD` | 0.70 |
+
+Inside the style signal (`stylometry.py`): sentence-length spread 0.55, punctuation 0.45, type-token ratio **0.0**. TTR ran backwards on my calibration texts — the clearly-AI paragraph had the most varied vocabulary (MATTR 0.92) and my plain human paragraph the least (0.78) — so I kept computing and printing it but gave it no weight.
+
+I also moved signal one's curve in `detector.py::model_signal` from midpoint 45 / steepness 1.6 to **midpoint 28 / steepness 2.5**. At 45, every calibration text scored above 0.5 on the model signal, including a clearly human paragraph (perplexity 31.3 → 0.64). My texts ran from perplexity 19 to 40, so the old midpoint sat outside the range where the decisions actually happen.
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
+**Calibration run** (both signals, after the changes above):
+
+| Input | Perplexity | model_score | style_score | combined |
+|---|---|---|---|---|
+| Clearly AI (generic essay on AI) | 19.3 | 0.717 | 0.876 | **0.781** |
+| Clearly human (grandmother's button jar) | 31.3 | 0.431 | 0.064 | **0.285** |
+| Formal human (committee report) | 39.8 | 0.293 | 0.498 | **0.375** |
+| Lightly-edited AI (remote work, with "honestly saves me about an hour a day" added) | 24.1 | 0.593 | 0.765 | **0.662** |
+| Plain human (short sentences about a library job) | 25.6 | 0.556 | 0.961 | **0.609** |
+
+Clearly-AI and clearly-human land about 0.50 apart.
 
 **A case where my two signals split, and what my rule does with it:**
 
-
+The plain human paragraph — *"I started working at the library last year. The job is not hard but it is busy. Every day I help people find books and use the computers…"* Signal one is unsure about it (0.556). Signal two is almost certain it's AI (0.961): every sentence is 7–10 words long and there isn't a single dash, colon or question mark. A plain 0.6/0.4 average gives 0.718, which would have been **high-confidence AI** — a real writer accused, exactly the person from my Milestone 1 trace. With my rule, the 0.405 gap pulls it to 0.609, and because the model signal is below the 0.65 floor it could never have crossed 0.69 anyway. It lands in "unsure". The cost: lightly-edited AI (0.662) also lands in "unsure" instead of "AI", because the model signal reads it at 0.593. I'd rather miss that than accuse the library paragraph.
 
 ---
 
